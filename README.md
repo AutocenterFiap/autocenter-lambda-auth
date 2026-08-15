@@ -185,9 +185,12 @@ Pipeline em [`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml):
 | Secret | `JWT_SECRET_ARN` | ARN do secret da chave JWT (mesma do app) |
 | Var | `AWS_REGION`, `VPC_ID`, `RDS_SECURITY_GROUP_ID`, `DB_HOST`, `DB_NAME`, `DB_USER` | Config da infra |
 | Var | `PRIVATE_SUBNET_IDS` | Lista JSON, ex.: `["subnet-a","subnet-b"]` |
+| Var | `TF_STATE_BUCKET`, `TF_LOCK_TABLE` | Backend S3/DynamoDB do estado (saem do bootstrap) |
 
-> Para o deploy em CI persistir o estado entre execuções, habilite o **backend S3**
-> (bloco comentado em `terraform/versions.tf`).
+> **Bootstrap (rodar uma vez):** a role de deploy (OIDC), o bucket S3 e a tabela de
+> lock são criados pelo módulo [`bootstrap/`](bootstrap/). O estado do Terraform é
+> **separado por ambiente** (key `serverless-auth/<homolog|prod>/terraform.tfstate`),
+> então homolog e prod não colidem.
 
 ## Status do trabalho
 

@@ -8,14 +8,12 @@ terraform {
     }
   }
 
-  # Backend remoto sugerido (descomente e ajuste para usar S3 + DynamoDB lock):
-  # backend "s3" {
-  #   bucket         = "autocenter-tfstate"
-  #   key            = "serverless-auth/terraform.tfstate"
-  #   region         = "us-east-1"
-  #   dynamodb_table = "autocenter-tflock"
-  #   encrypt        = true
-  # }
+  # Backend remoto S3 + DynamoDB lock — configuração PARCIAL.
+  # bucket/key/region/dynamodb_table são passados no `terraform init -backend-config=...`.
+  # O CI usa uma KEY por ambiente (serverless-auth/<homolog|prod>/terraform.tfstate),
+  # garantindo estados isolados entre homolog e prod.
+  # Para rodar/validar localmente sem estado remoto: `terraform init -backend=false`.
+  backend "s3" {}
 }
 
 provider "aws" {
