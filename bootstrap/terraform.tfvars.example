@@ -1,0 +1,21 @@
+# Copie para terraform.tfvars e preencha. (terraform.tfvars está no .gitignore.)
+
+aws_region  = "us-east-1"
+github_org  = "AutocenterFiap"
+github_repo = "autocenter-lambda-auth"
+environments = ["homolog", "prod"]
+
+# Bucket S3 precisa de nome GLOBALMENTE único
+state_bucket_name = "autocenter-tfstate-SEU-SUFIXO"
+lock_table_name   = "autocenter-tflock"
+
+deploy_role_name = "autocenter-lambda-auth-deploy"
+
+# Se o OIDC provider do GitHub JÁ existe na conta, use:
+# create_oidc_provider       = false
+# existing_oidc_provider_arn = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
+
+# Restrinja a leitura de segredos aos ARNs reais (recomendado):
+# secret_arns = [
+#   "arn:aws:secretsmanager:us-east-1:123456789012:secret:autocenter/*"
+# ]
