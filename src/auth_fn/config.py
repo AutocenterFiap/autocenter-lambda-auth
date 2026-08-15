@@ -1,8 +1,18 @@
 """Configuração lida de variáveis de ambiente.
 
+Banco de dados: a Lambda conecta no **mesmo banco da aplicação principal**
+(mesma tabela `clientes`), pois precisa enxergar os clientes cadastrados pelo app
+e a coluna `status`. Portanto, em produção, DB_HOST/DB_NAME devem apontar para o
+**mesmo RDS** que o app usa.
+
+Boa prática: a Lambda faz apenas leitura (SELECT), então deve usar um usuário
+**somente-leitura** dedicado (ex.: `auth_readonly`), com privilégio mínimo — e
+NÃO o usuário de escrita do app. Ver `scripts/create_readonly_user.sql`.
+
 Em produção, os valores sensíveis (JWT_SECRET, DB_PASSWORD) devem vir do
 AWS Secrets Manager / SSM injetados como variáveis de ambiente pela infra (Terraform).
-Os defaults abaixo servem apenas para desenvolvimento/local.
+Os defaults abaixo servem apenas para desenvolvimento local e espelham o
+docker-compose do app (banco `autocenterdb`, usuário `autocenter`).
 """
 import os
 from dataclasses import dataclass
