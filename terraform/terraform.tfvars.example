@@ -14,6 +14,9 @@ private_subnet_ids    = ["subnet-aaaa", "subnet-bbbb"]
 rds_security_group_id = "sg-xxxxxxxx"
 
 # --- Banco (RDS) ---
+# IMPORTANTE: deve ser o MESMO RDS/banco da aplicação principal (mesma tabela clientes).
+# Use um usuário SOMENTE-LEITURA dedicado (ver scripts/create_readonly_user.sql),
+# não o usuário de escrita do app.
 db_host                = "autocenter.xxxxxxxx.us-east-1.rds.amazonaws.com"
 db_port                = 3306
 db_name                = "autocenterdb"

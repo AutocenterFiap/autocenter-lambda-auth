@@ -105,12 +105,17 @@ sam local invoke AuthFunction -e events/auth_event.json
 | `JWT_SECRET` | Segredo HMAC compartilhado com o app | `123456789` |
 | `JWT_ISSUER` | Issuer do token | `Auto Center Fiap` |
 | `JWT_EXP_MINUTES` | Expiração em minutos | `30` |
-| `DB_HOST` / `DB_PORT` | Host/porta do RDS | `localhost` / `3306` |
+| `DB_HOST` / `DB_PORT` | Host/porta do RDS (**mesmo banco do app**) | `localhost` / `3306` |
 | `DB_NAME` | Nome do banco | `autocenterdb` |
-| `DB_USER` / `DB_PASSWORD` | Credenciais | `autocenter` / `autocenter123` |
+| `DB_USER` / `DB_PASSWORD` | Credenciais (prod: usuário **read-only**) | `autocenter` / `autocenter123` |
 
+> **Mesmo banco da aplicação principal:** a Lambda lê a tabela `clientes` do
+> **mesmo RDS** que o app usa (`DB_HOST`/`DB_NAME` devem coincidir). Como só faz
+> `SELECT`, em produção use um usuário **somente-leitura** dedicado — ver
+> [`scripts/create_readonly_user.sql`](scripts/create_readonly_user.sql).
+>
 > **Produção:** `JWT_SECRET` e `DB_PASSWORD` devem vir do **AWS Secrets Manager**,
-> nunca versionados. Ver ADR (a ser adicionada em `docs/`).
+> nunca versionados.
 
 ## Build & Deploy
 
