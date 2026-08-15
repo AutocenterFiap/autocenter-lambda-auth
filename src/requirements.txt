@@ -1,0 +1,4 @@
+# Dependências para o build do SAM (espelha a raiz ../requirements.txt).
+# Mantenha em sincronia com o requirements.txt da raiz.
+PyJWT==2.9.0
+PyMySQL==1.1.1

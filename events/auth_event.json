@@ -1,0 +1,7 @@
+{
+  "resource": "/auth",
+  "path": "/auth",
+  "httpMethod": "POST",
+  "headers": { "Content-Type": "application/json" },
+  "body": "{\"cpf\": \"123.456.789-09\"}"
+}

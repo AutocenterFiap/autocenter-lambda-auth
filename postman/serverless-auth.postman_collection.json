@@ -1,0 +1,73 @@
+{
+  "info": {
+    "name": "Auto Center FIAP — Serverless Auth",
+    "description": "Autenticação de clientes por CPF (Function Serverless). Retorna um JWT para consumo das APIs protegidas.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:3000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth - CPF válido e ativo (200)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/auth", "host": ["{{baseUrl}}"], "path": ["auth"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cpf\": \"111.444.777-35\"\n}"
+        },
+        "description": "Cliente João da Silva (ATIVO). Deve retornar 200 com o token."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('tem token', () => pm.expect(body.token).to.be.a('string'));",
+              "pm.collectionVariables.set('token', body.token);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - CPF inválido (400)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/auth", "host": ["{{baseUrl}}"], "path": ["auth"] },
+        "body": { "mode": "raw", "raw": "{\n  \"cpf\": \"11111111111\"\n}" },
+        "description": "CPF com dígitos verificadores inválidos. Deve retornar 400 CPF_INVALIDO."
+      }
+    },
+    {
+      "name": "Auth - Cliente inexistente (404)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/auth", "host": ["{{baseUrl}}"], "path": ["auth"] },
+        "body": { "mode": "raw", "raw": "{\n  \"cpf\": \"529.982.247-25\"\n}" },
+        "description": "CPF válido mas sem cliente cadastrado. Deve retornar 404 CLIENTE_NAO_ENCONTRADO."
+      }
+    },
+    {
+      "name": "Auth - Cliente inativo (403)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/auth", "host": ["{{baseUrl}}"], "path": ["auth"] },
+        "body": { "mode": "raw", "raw": "{\n  \"cpf\": \"333.666.999-57\"\n}" },
+        "description": "Cliente Pedro Oliveira (INATIVO). Deve retornar 403 CLIENTE_INATIVO."
+      }
+    }
+  ]
+}

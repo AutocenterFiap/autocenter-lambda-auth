@@ -1,0 +1,9 @@
+# Normaliza fim de linha: LF por padrão (scripts .sh e CI Linux dependem disso)
+* text=auto eol=lf
+
+# Arquivos exclusivos de Windows mantêm CRLF
+*.ps1 text eol=crlf
+
+# Binários (não normalizar)
+*.zip binary
+*.png binary

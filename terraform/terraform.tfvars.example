@@ -1,0 +1,26 @@
+# Copie para terraform.tfvars e preencha com os valores reais.
+# (terraform.tfvars está no .gitignore — nunca versione segredos/ARNs sensíveis.)
+
+aws_region   = "us-east-1"
+project_name = "autocenter-auth"
+environment  = "homolog"
+
+# Pacote gerado por scripts/build.sh
+lambda_package = "../dist/function.zip"
+
+# --- Rede (do repo de infra de banco / VPC) ---
+vpc_id                = "vpc-xxxxxxxx"
+private_subnet_ids    = ["subnet-aaaa", "subnet-bbbb"]
+rds_security_group_id = "sg-xxxxxxxx"
+
+# --- Banco (RDS) ---
+db_host                = "autocenter.xxxxxxxx.us-east-1.rds.amazonaws.com"
+db_port                = 3306
+db_name                = "autocenterdb"
+db_user                = "auth_readonly"
+db_password_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:autocenter/db-password-xxxxxx"
+
+# --- JWT (MESMO secret do app principal!) ---
+jwt_secret_arn  = "arn:aws:secretsmanager:us-east-1:123456789012:secret:autocenter/jwt-secret-xxxxxx"
+jwt_issuer      = "Auto Center Fiap"
+jwt_exp_minutes = 30
