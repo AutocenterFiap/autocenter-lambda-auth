@@ -2,9 +2,9 @@ name: CI/CD Serverless Auth
 
 on:
   push:
-    branches: [homolog, main]
+    branches: [homolog, main, feature/api-gateway]
   pull_request:
-    branches: [homolog, main]
+    branches: [homolog, main, feature/api-gateway]
 
 concurrency:
   group: gateway-terraform-cloud
