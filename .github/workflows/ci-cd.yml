@@ -65,8 +65,12 @@ jobs:
     name: Publicar imagem e acionar Terraform Cloud
     runs-on: ubuntu-latest
     needs: [test, terraform-validate]
-    if: github.event_name == 'push'
-    environment: ${{ github.ref_name == 'main' && 'prod' || 'homolog' }}
+    if: >-
+      ${{ github.event_name == 'push' &&
+          (github.ref_name == 'main' ||
+           github.ref_name == 'homolog' ||
+           github.ref_name == 'feature/api-gateway') }}
+    environment: ${{ github.ref_name == 'main' && 'prod' || (github.ref_name == 'homolog' && 'homolog' || 'feature/api-gateway') }}
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
       AWS_DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
