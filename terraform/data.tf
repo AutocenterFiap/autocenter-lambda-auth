@@ -48,7 +48,7 @@ locals {
 }
 
 data "aws_eks_cluster" "cluster" {
-  name = local.eks_cluster_name
+  name = "autocenter-fiap-infraestrutura"
 }
 
 data "aws_eks_cluster_auth" "cluster" {
@@ -56,7 +56,7 @@ data "aws_eks_cluster_auth" "cluster" {
 }
 
 data "aws_eks_node_group" "app" {
-  cluster_name    = local.eks_cluster_name
+  cluster_name    = "autocenter-fiap-infraestrutura"
   node_group_name = var.eks_node_group_name
 }
 
