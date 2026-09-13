@@ -17,3 +17,4 @@ terraform.tfvars
 crash.log
 crash.*.log
 .terraform.lock.hcl
+.worktrees/

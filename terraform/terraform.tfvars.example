@@ -5,22 +5,34 @@ aws_region   = "us-east-1"
 project_name = "autocenter-auth"
 environment  = "homolog"
 
-# Pacote gerado por scripts/build.sh
-lambda_package = "../dist/function.zip"
+# Imagem já publicada no ECR antes do apply remoto.
+lambda_image_uri = "123456789012.dkr.ecr.us-east-1.amazonaws.com/autocenter-auth:sha-abcdef0"
 
 # --- Rede (do repo de infra de banco / VPC) ---
 vpc_id                = "vpc-xxxxxxxx"
 private_subnet_ids    = ["subnet-aaaa", "subnet-bbbb"]
 rds_security_group_id = "sg-xxxxxxxx"
+eks_cluster_name      = "eks-autocenter-fiap-infraestrutura"
+eks_node_group_name   = "node-group-autocenter-fiap-infraestrutura"
 
 # --- Banco (RDS) ---
 db_host                = "autocenter.xxxxxxxx.us-east-1.rds.amazonaws.com"
 db_port                = 3306
+db_connect_timeout     = 5
 db_name                = "autocenterdb"
 db_user                = "auth_readonly"
-db_password_secret_arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:autocenter/db-password-xxxxxx"
 
 # --- JWT (MESMO secret do app principal!) ---
-jwt_secret_arn  = "arn:aws:secretsmanager:us-east-1:123456789012:secret:autocenter/jwt-secret-xxxxxx"
 jwt_issuer      = "Auto Center Fiap"
 jwt_exp_minutes = 30
+
+allowed_origins = ["https://app.autocenter.example.com"]
+
+# --- Aplicacao Kubernetes existente ---
+application_service_name = "autocenter-app-service"
+application_namespace    = "autocenter"
+
+# Variáveis sensíveis NÃO entram neste arquivo.
+# Configure somente no workspace Terraform Cloud `gateway`:
+# - db_password
+# - jwt_secret

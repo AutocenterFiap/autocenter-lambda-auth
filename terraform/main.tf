@@ -7,53 +7,49 @@ locals {
   }
 }
 
-# ----------------------------------------------------------------------------
-# Segredos (Secrets Manager) — lidos para injetar como variáveis de ambiente.
-# Os secrets são criados fora deste módulo (ou manualmente); aqui só referenciamos.
-# ----------------------------------------------------------------------------
-data "aws_secretsmanager_secret_version" "jwt" {
-  secret_id = var.jwt_secret_arn
-}
-
-data "aws_secretsmanager_secret_version" "db_password" {
-  secret_id = var.db_password_secret_arn
-}
-
-# ----------------------------------------------------------------------------
-# IAM — role de execução da Lambda
-# ----------------------------------------------------------------------------
-data "aws_iam_policy_document" "lambda_assume" {
-  statement {
-    actions = ["sts:AssumeRole"]
-    principals {
-      type        = "Service"
-      identifiers = ["lambda.amazonaws.com"]
-    }
-  }
-}
-
 resource "aws_iam_role" "lambda" {
-  name               = "${local.name}-role"
-  assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
-  tags               = local.tags
+  name = "${local.name}-role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Action    = "sts:AssumeRole"
+      Principal = { Service = "lambda.amazonaws.com" }
+    }]
+  })
+  tags = local.tags
 }
 
-# Logs no CloudWatch + criação de ENIs na VPC (necessário para acessar o RDS)
+resource "aws_iam_role" "authorizer" {
+  name = "${local.name}-authorizer-role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Action    = "sts:AssumeRole"
+      Principal = { Service = "lambda.amazonaws.com" }
+    }]
+  })
+  tags = local.tags
+}
+
 resource "aws_iam_role_policy_attachment" "vpc_access" {
   role       = aws_iam_role.lambda.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
-# ----------------------------------------------------------------------------
-# Rede — security group da Lambda e liberação de acesso ao RDS
-# ----------------------------------------------------------------------------
+resource "aws_iam_role_policy_attachment" "authorizer_vpc_access" {
+  role       = aws_iam_role.authorizer.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
 resource "aws_security_group" "lambda" {
   name        = "${local.name}-sg"
   description = "Security group da Lambda de autenticacao"
-  vpc_id      = var.vpc_id
+  vpc_id      = local.vpc_id
 
   egress {
-    description = "Saida para o RDS e AWS APIs"
+    description = "Saida para o RDS"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -63,43 +59,86 @@ resource "aws_security_group" "lambda" {
   tags = local.tags
 }
 
-# Libera a Lambda a conectar na porta do banco no security group do RDS
+resource "aws_security_group" "authorizer" {
+  name        = "${local.name}-authorizer-sg"
+  description = "Security group da Lambda authorizer"
+  vpc_id      = local.vpc_id
+
+  egress {
+    description = "Saida geral"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = local.tags
+}
+
 resource "aws_security_group_rule" "rds_ingress_from_lambda" {
   type                     = "ingress"
   description              = "Acesso da Lambda de auth ao banco"
   from_port                = var.db_port
   to_port                  = var.db_port
   protocol                 = "tcp"
-  security_group_id        = var.rds_security_group_id
+  security_group_id        = local.rds_security_group_id
   source_security_group_id = aws_security_group.lambda.id
 }
 
-# ----------------------------------------------------------------------------
-# Lambda
-# ----------------------------------------------------------------------------
 resource "aws_lambda_function" "auth" {
-  function_name    = local.name
-  role             = aws_iam_role.lambda.arn
-  runtime          = var.python_runtime
-  handler          = "auth_fn.handler.handler"
-  filename         = var.lambda_package
-  source_code_hash = filebase64sha256(var.lambda_package)
-  timeout          = var.lambda_timeout
-  memory_size      = var.lambda_memory
+  function_name = local.name
+  role          = aws_iam_role.lambda.arn
+  package_type  = "Image"
+  image_uri     = var.lambda_image_uri
+  timeout       = var.lambda_timeout
+  memory_size   = var.lambda_memory
+
+  image_config {
+    command = ["auth_fn.handler.handler"]
+  }
 
   vpc_config {
-    subnet_ids         = var.private_subnet_ids
+    subnet_ids         = local.private_subnet_ids
     security_group_ids = [aws_security_group.lambda.id]
   }
 
   environment {
     variables = {
-      DB_HOST         = var.db_host
-      DB_PORT         = tostring(var.db_port)
-      DB_NAME         = var.db_name
-      DB_USER         = var.db_user
-      DB_PASSWORD     = data.aws_secretsmanager_secret_version.db_password.secret_string
-      JWT_SECRET      = data.aws_secretsmanager_secret_version.jwt.secret_string
+      DB_HOST            = local.db_host
+      DB_PORT            = tostring(var.db_port)
+      DB_NAME            = local.db_name
+      DB_USER            = local.db_user
+      DB_CONNECT_TIMEOUT = tostring(var.db_connect_timeout)
+      DB_PASSWORD        = var.db_password
+      JWT_SECRET         = var.jwt_secret
+      JWT_ISSUER         = var.jwt_issuer
+      JWT_EXP_MINUTES    = tostring(var.jwt_exp_minutes)
+    }
+  }
+
+  tags = local.tags
+}
+
+resource "aws_lambda_function" "authorizer" {
+  function_name = "${local.name}-authorizer"
+  role          = aws_iam_role.authorizer.arn
+  package_type  = "Image"
+  image_uri     = var.lambda_image_uri
+  timeout       = var.lambda_timeout
+  memory_size   = var.lambda_memory
+
+  image_config {
+    command = ["auth_fn.authorizer.handler"]
+  }
+
+  vpc_config {
+    subnet_ids         = local.private_subnet_ids
+    security_group_ids = [aws_security_group.authorizer.id]
+  }
+
+  environment {
+    variables = {
+      JWT_SECRET      = var.jwt_secret
       JWT_ISSUER      = var.jwt_issuer
       JWT_EXP_MINUTES = tostring(var.jwt_exp_minutes)
     }
@@ -108,19 +147,120 @@ resource "aws_lambda_function" "auth" {
   tags = local.tags
 }
 
-resource "aws_cloudwatch_log_group" "lambda" {
-  name              = "/aws/lambda/${local.name}"
-  retention_in_days = 14
-  tags              = local.tags
+resource "aws_lb" "app" {
+  name                             = "${local.name}-app"
+  internal                         = true
+  load_balancer_type               = "network"
+  subnets                          = local.private_subnet_ids
+  security_groups                  = [aws_security_group.nlb.id]
+  enable_cross_zone_load_balancing = true
+  tags                             = local.tags
 }
 
-# ----------------------------------------------------------------------------
-# API Gateway (HTTP API) — POST /auth -> Lambda (proxy)
-# ----------------------------------------------------------------------------
+resource "aws_lb_target_group" "app" {
+  name               = "${local.name}-app"
+  port               = local.application_node_port
+  protocol           = "TCP"
+  target_type        = "instance"
+  vpc_id             = local.vpc_id
+  preserve_client_ip = false
+  tags               = local.tags
+
+  lifecycle {
+    precondition {
+      condition     = local.application_node_port != null
+      error_message = "O Service da aplicacao precisa expor um NodePort."
+    }
+  }
+}
+
+resource "aws_lb_listener" "app" {
+  load_balancer_arn = aws_lb.app.arn
+  port              = 80
+  protocol          = "TCP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.app.arn
+  }
+}
+
+resource "aws_autoscaling_attachment" "app" {
+  autoscaling_group_name = data.aws_eks_node_group.app.resources[0].autoscaling_groups[0].name
+  lb_target_group_arn    = aws_lb_target_group.app.arn
+}
+
+resource "aws_security_group" "vpc_link" {
+  name        = "${local.name}-vpc-link-sg"
+  description = "Security group do VPC Link para o NLB interno"
+  vpc_id      = local.vpc_id
+
+  egress {
+    description     = "Acesso ao listener do NLB interno"
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    security_groups = [aws_security_group.nlb.id]
+  }
+
+  tags = local.tags
+}
+
+resource "aws_security_group" "nlb" {
+  name        = "${local.name}-nlb-sg"
+  description = "Security group do NLB interno"
+  vpc_id      = local.vpc_id
+
+  egress {
+    description     = "Acesso ao NodePort do cluster"
+    from_port       = local.application_node_port
+    to_port         = local.application_node_port
+    protocol        = "tcp"
+    security_groups = [data.aws_eks_cluster.cluster.vpc_config[0].cluster_security_group_id]
+  }
+
+  tags = local.tags
+
+  lifecycle {
+    precondition {
+      condition     = local.application_node_port != null
+      error_message = "O Service da aplicacao precisa expor um NodePort."
+    }
+  }
+}
+
+resource "aws_security_group_rule" "nlb_from_vpc_link" {
+  type                     = "ingress"
+  description              = "VPC Link acessa o listener do NLB interno"
+  from_port                = 80
+  to_port                  = 80
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.nlb.id
+  source_security_group_id = aws_security_group.vpc_link.id
+}
+
+resource "aws_security_group_rule" "cluster_from_nlb" {
+  type                     = "ingress"
+  description              = "NLB acessa o NodePort da aplicacao"
+  from_port                = local.application_node_port
+  to_port                  = local.application_node_port
+  protocol                 = "tcp"
+  security_group_id        = data.aws_eks_cluster.cluster.vpc_config[0].cluster_security_group_id
+  source_security_group_id = aws_security_group.nlb.id
+}
+
 resource "aws_apigatewayv2_api" "http" {
   name          = "${local.name}-api"
   protocol_type = "HTTP"
-  tags          = local.tags
+
+  cors_configuration {
+    allow_credentials = false
+    allow_headers     = ["authorization", "content-type"]
+    allow_methods     = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+    allow_origins     = var.allowed_origins
+  }
+
+  tags = local.tags
 }
 
 resource "aws_apigatewayv2_integration" "auth" {
@@ -130,44 +270,81 @@ resource "aws_apigatewayv2_integration" "auth" {
   payload_format_version = "2.0"
 }
 
+resource "aws_apigatewayv2_vpc_link" "app" {
+  name               = "${local.name}-vpc-link"
+  subnet_ids         = local.private_subnet_ids
+  security_group_ids = [aws_security_group.vpc_link.id]
+  tags               = local.tags
+}
+
+resource "aws_apigatewayv2_integration" "app" {
+  api_id                 = aws_apigatewayv2_api.http.id
+  integration_type       = "HTTP_PROXY"
+  integration_method     = "ANY"
+  integration_uri        = aws_lb_listener.app.arn
+  connection_type        = "VPC_LINK"
+  connection_id          = aws_apigatewayv2_vpc_link.app.id
+  payload_format_version = "1.0"
+}
+
+resource "aws_apigatewayv2_authorizer" "jwt" {
+  api_id                            = aws_apigatewayv2_api.http.id
+  authorizer_type                   = "REQUEST"
+  authorizer_uri                    = aws_lambda_function.authorizer.invoke_arn
+  authorizer_payload_format_version = "2.0"
+  enable_simple_responses           = true
+  identity_sources                  = ["$request.header.Authorization"]
+  name                              = "${local.name}-jwt"
+}
+
 resource "aws_apigatewayv2_route" "auth" {
-  api_id    = aws_apigatewayv2_api.http.id
-  route_key = "POST /auth"
-  target    = "integrations/${aws_apigatewayv2_integration.auth.id}"
+  api_id             = aws_apigatewayv2_api.http.id
+  route_key          = "POST /auth"
+  authorization_type = "NONE"
+  target             = "integrations/${aws_apigatewayv2_integration.auth.id}"
+}
+
+resource "aws_apigatewayv2_route" "oauth_token" {
+  api_id             = aws_apigatewayv2_api.http.id
+  route_key          = "POST /v1/oauth/token"
+  authorization_type = "NONE"
+  target             = "integrations/${aws_apigatewayv2_integration.app.id}"
+}
+
+resource "aws_apigatewayv2_route" "oauth_refresh" {
+  api_id             = aws_apigatewayv2_api.http.id
+  route_key          = "POST /v1/oauth/refresh-token"
+  authorization_type = "NONE"
+  target             = "integrations/${aws_apigatewayv2_integration.app.id}"
+}
+
+resource "aws_apigatewayv2_route" "protected" {
+  api_id             = aws_apigatewayv2_api.http.id
+  route_key          = "ANY /{proxy+}"
+  authorization_type = "CUSTOM"
+  authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
+  target             = "integrations/${aws_apigatewayv2_integration.app.id}"
 }
 
 resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.http.id
   name        = "$default"
   auto_deploy = true
-
-  access_log_settings {
-    destination_arn = aws_cloudwatch_log_group.api.arn
-    format = jsonencode({
-      requestId      = "$context.requestId"
-      ip             = "$context.identity.sourceIp"
-      requestTime    = "$context.requestTime"
-      httpMethod     = "$context.httpMethod"
-      routeKey       = "$context.routeKey"
-      status         = "$context.status"
-      responseLength = "$context.responseLength"
-      latency        = "$context.responseLatency"
-    })
-  }
-
-  tags = local.tags
+  tags        = local.tags
 }
 
-resource "aws_cloudwatch_log_group" "api" {
-  name              = "/aws/apigateway/${local.name}"
-  retention_in_days = 14
-  tags              = local.tags
-}
-
-resource "aws_lambda_permission" "api" {
-  statement_id  = "AllowApiGatewayInvoke"
+resource "aws_lambda_permission" "api_auth" {
+  statement_id  = "AllowApiGatewayInvokeAuth"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.auth.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.http.execution_arn}/*/*"
+}
+
+resource "aws_lambda_permission" "api_authorizer" {
+  statement_id  = "AllowApiGatewayInvokeAuthorizer"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.authorizer.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.http.execution_arn}/authorizers/${aws_apigatewayv2_authorizer.jwt.id}"
 }

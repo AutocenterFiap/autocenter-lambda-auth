@@ -6,16 +6,11 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.30"
+    }
   }
-
-  # Backend remoto sugerido (descomente e ajuste para usar S3 + DynamoDB lock):
-  # backend "s3" {
-  #   bucket         = "autocenter-tfstate"
-  #   key            = "serverless-auth/terraform.tfstate"
-  #   region         = "us-east-1"
-  #   dynamodb_table = "autocenter-tflock"
-  #   encrypt        = true
-  # }
 }
 
 provider "aws" {

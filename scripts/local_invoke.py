@@ -14,6 +14,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+os.environ.setdefault("LOCAL_AUTH", "true")
 
 from auth_fn.handler import handler  # noqa: E402
 

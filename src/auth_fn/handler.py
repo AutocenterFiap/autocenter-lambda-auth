@@ -12,8 +12,16 @@ from .service import autenticar
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-# Config carregada uma vez por container (reaproveitada entre invocações quentes).
-_config = load_config()
+_config = None
+
+
+def get_config():
+    global _config
+
+    if _config is None:
+        _config = load_config()
+
+    return _config
 
 
 def _resposta(status_code: int, corpo: dict) -> dict:
@@ -42,7 +50,7 @@ def handler(event, context):
     """Recebe {"cpf": "..."} e devolve um JWT ou um erro estruturado."""
     try:
         cpf = _extrair_cpf(event or {})
-        resultado = autenticar(_config, cpf)
+        resultado = autenticar(get_config(), cpf)
         return _resposta(200, resultado)
     except AuthError as e:
         logger.info("Falha de autenticação: %s (%s)", e.codigo, e.mensagem)
