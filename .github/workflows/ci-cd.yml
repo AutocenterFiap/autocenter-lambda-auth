@@ -158,4 +158,5 @@ jobs:
 
       - name: Exibir link do run
         if: ${{ env.TF_API_TOKEN != '' }}
-        run: echo "Run Terraform Cloud: ${{ steps.create-run.outputs.run_link }}"
+        run: |
+          echo "Run Terraform Cloud: ${{ steps.create-run.outputs.run_link }}"
