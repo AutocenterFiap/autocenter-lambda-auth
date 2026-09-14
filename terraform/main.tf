@@ -7,49 +7,13 @@ locals {
   }
 }
 
-resource "aws_iam_role" "lambda" {
-  name = "${local.name}-role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect    = "Allow"
-      Action    = "sts:AssumeRole"
-      Principal = { Service = "lambda.amazonaws.com" }
-    }]
-  })
-  tags = local.tags
-}
-
-resource "aws_iam_role" "authorizer" {
-  name = "${local.name}-authorizer-role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect    = "Allow"
-      Action    = "sts:AssumeRole"
-      Principal = { Service = "lambda.amazonaws.com" }
-    }]
-  })
-  tags = local.tags
-}
-
-resource "aws_iam_role_policy_attachment" "vpc_access" {
-  role       = aws_iam_role.lambda.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
-}
-
-resource "aws_iam_role_policy_attachment" "authorizer_vpc_access" {
-  role       = aws_iam_role.authorizer.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
-}
-
 resource "aws_security_group" "lambda" {
   name        = "${local.name}-sg"
   description = "Security group da Lambda de autenticacao"
   vpc_id      = local.vpc_id
 
   egress {
-    description = "Saida para o RDS"
+    description = "Saida para o RDS e servicos"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -87,7 +51,7 @@ resource "aws_security_group_rule" "rds_ingress_from_lambda" {
 
 resource "aws_lambda_function" "auth" {
   function_name = local.name
-  role          = aws_iam_role.lambda.arn
+  role          = var.lab_role_arn
   package_type  = "Image"
   image_uri     = var.lambda_image_uri
   timeout       = var.lambda_timeout
@@ -121,7 +85,7 @@ resource "aws_lambda_function" "auth" {
 
 resource "aws_lambda_function" "authorizer" {
   function_name = "${local.name}-authorizer"
-  role          = aws_iam_role.authorizer.arn
+  role          = var.lab_role_arn
   package_type  = "Image"
   image_uri     = var.lambda_image_uri
   timeout       = var.lambda_timeout

@@ -151,3 +151,9 @@ variable "allowed_origins" {
   type        = list(string)
   default     = ["*"]
 }
+
+variable "lab_role_arn" {
+  description = "ARN do IAM Role existente para execucao (AWS Academy LabRole)."
+  type        = string
+  default     = "arn:aws:iam::698096482625:role/LabRole"
+}
