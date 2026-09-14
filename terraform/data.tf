@@ -40,6 +40,7 @@ locals {
   private_subnet_ids       = try(local.infraestrutura_outputs.private_subnet_ids, var.private_subnet_ids)
   rds_security_group_id    = try(local.database_outputs.rds_security_group_id, var.rds_security_group_id)
   eks_cluster_name         = try(local.infraestrutura_outputs.eks_cluster_name, var.eks_cluster_name)
+  eks_node_group_name      = try(local.infraestrutura_outputs.eks_node_group_name, var.eks_node_group_name)
   db_host                  = try(local.database_outputs.rds_endpoint, var.db_host)
   db_name                  = try(local.database_outputs.db_name, var.db_name)
   db_user                  = try(local.database_outputs.db_user, var.db_user)
@@ -48,7 +49,7 @@ locals {
 }
 
 data "aws_eks_cluster" "cluster" {
-  name = "autocenter-fiap-infraestrutura"
+  name = local.eks_cluster_name
 }
 
 data "aws_eks_cluster_auth" "cluster" {
@@ -56,8 +57,8 @@ data "aws_eks_cluster_auth" "cluster" {
 }
 
 data "aws_eks_node_group" "app" {
-  cluster_name    = "autocenter-fiap-infraestrutura"
-  node_group_name = var.eks_node_group_name
+  cluster_name    = local.eks_cluster_name
+  node_group_name = local.eks_node_group_name
 }
 
 provider "kubernetes" {

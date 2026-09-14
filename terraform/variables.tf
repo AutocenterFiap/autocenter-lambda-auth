@@ -83,6 +83,7 @@ variable "application_namespace" {
 variable "eks_node_group_name" {
   description = "Nome do node group EKS que recebera o NodePort."
   type        = string
+  default     = null
 }
 
 # ----------------------------------------------------------------------------
@@ -148,4 +149,5 @@ variable "jwt_exp_minutes" {
 variable "allowed_origins" {
   description = "Origens permitidas pelo CORS do HTTP API."
   type        = list(string)
+  default     = ["*"]
 }
