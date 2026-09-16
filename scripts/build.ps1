@@ -1,21 +1,13 @@
-# Empacota a Lambda (código + dependências) em dist/function.zip (Windows)
+# Faz o build local da imagem da Lambda usando o Dockerfile do projeto (Windows)
 $ErrorActionPreference = "Stop"
 
-$root  = Split-Path -Parent $PSScriptRoot
-$build = Join-Path $root "build"
-$dist  = Join-Path $root "dist"
+$root = Split-Path -Parent $PSScriptRoot
 
-Remove-Item -Recurse -Force $build, $dist -ErrorAction SilentlyContinue
-New-Item -ItemType Directory -Force -Path $build, $dist | Out-Null
+if (-not $env:IMAGE_TAG -or [string]::IsNullOrWhiteSpace($env:IMAGE_TAG)) {
+    $env:IMAGE_TAG = "autocenter-lambda-auth:local"
+}
 
-Write-Host "==> Instalando dependências"
-python -m pip install -r (Join-Path $root "requirements.txt") -t $build --quiet
+Write-Host "==> Build da imagem Lambda: $env:IMAGE_TAG"
+docker build --platform linux/amd64 -t $env:IMAGE_TAG $root
 
-Write-Host "==> Copiando código-fonte"
-Copy-Item -Recurse (Join-Path $root "src\auth_fn") (Join-Path $build "auth_fn")
-
-Write-Host "==> Gerando dist\function.zip"
-Get-ChildItem -Recurse -Directory -Filter "__pycache__" $build | Remove-Item -Recurse -Force
-Compress-Archive -Path (Join-Path $build "*") -DestinationPath (Join-Path $dist "function.zip") -Force
-
-Write-Host "OK -> $dist\function.zip"
+Write-Host "OK -> $env:IMAGE_TAG"

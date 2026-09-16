@@ -45,6 +45,7 @@ Resources:
       Handler: auth_fn.handler.handler
       Environment:
         Variables:
+          LOCAL_AUTH: "true"
           JWT_SECRET: !Ref JwtSecret
           JWT_ISSUER: !Ref JwtIssuer
           JWT_EXP_MINUTES: !Ref JwtExpMinutes

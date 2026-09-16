@@ -17,18 +17,16 @@ variable "environment" {
 }
 
 # ----------------------------------------------------------------------------
-# Pacote da Lambda (gerado por scripts/build.sh -> dist/function.zip)
+# Imagem da Lambda publicada no ECR antes do apply remoto do Terraform Cloud
 # ----------------------------------------------------------------------------
-variable "lambda_package" {
-  description = "Caminho para o zip da função."
+variable "lambda_image_uri" {
+  description = "URI completa da imagem da Lambda publicada no ECR."
   type        = string
-  default     = "../dist/function.zip"
-}
 
-variable "python_runtime" {
-  description = "Runtime Python da Lambda."
-  type        = string
-  default     = "python3.12"
+  validation {
+    condition     = trimspace(var.lambda_image_uri) != ""
+    error_message = "lambda_image_uri deve apontar para uma imagem publicada no ECR."
+  }
 }
 
 variable "lambda_timeout" {
@@ -49,16 +47,43 @@ variable "lambda_memory" {
 variable "vpc_id" {
   description = "ID da VPC onde o RDS está (fornecido pelo repo de infra de banco)."
   type        = string
+  default     = null
 }
 
 variable "private_subnet_ids" {
   description = "Subnets privadas com rota para o RDS."
   type        = list(string)
+  default     = null
 }
 
 variable "rds_security_group_id" {
   description = "Security group do RDS — receberá regra de ingress vinda da Lambda."
   type        = string
+  default     = null
+}
+
+variable "eks_cluster_name" {
+  description = "Nome do cluster EKS existente."
+  type        = string
+  default     = null
+}
+
+variable "application_service_name" {
+  description = "Nome do Service Kubernetes existente da aplicacao."
+  type        = string
+  default     = null
+}
+
+variable "application_namespace" {
+  description = "Namespace do Service Kubernetes existente da aplicacao."
+  type        = string
+  default     = null
+}
+
+variable "eks_node_group_name" {
+  description = "Nome do node group EKS que recebera o NodePort."
+  type        = string
+  default     = null
 }
 
 # ----------------------------------------------------------------------------
@@ -67,12 +92,19 @@ variable "rds_security_group_id" {
 variable "db_host" {
   description = "Endpoint do RDS."
   type        = string
+  default     = null
 }
 
 variable "db_port" {
   description = "Porta do banco."
   type        = number
   default     = 3306
+}
+
+variable "db_connect_timeout" {
+  description = "Timeout de conexão com o banco, em segundos."
+  type        = number
+  default     = 5
 }
 
 variable "db_name" {
@@ -84,19 +116,22 @@ variable "db_name" {
 variable "db_user" {
   description = "Usuário do banco (somente leitura recomendado)."
   type        = string
+  default     = null
 }
 
-variable "db_password_secret_arn" {
-  description = "ARN do secret (Secrets Manager) com a senha do banco."
+variable "db_password" {
+  description = "Senha do banco usada pela Lambda de autenticacao."
   type        = string
+  sensitive   = true
 }
 
 # ----------------------------------------------------------------------------
 # JWT — o secret DEVE ser o mesmo do app principal para o token ser aceito
 # ----------------------------------------------------------------------------
-variable "jwt_secret_arn" {
-  description = "ARN do secret (Secrets Manager) com a chave HMAC do JWT (mesma do app)."
+variable "jwt_secret" {
+  description = "Chave HMAC compartilhada com o app principal."
   type        = string
+  sensitive   = true
 }
 
 variable "jwt_issuer" {
@@ -109,4 +144,16 @@ variable "jwt_exp_minutes" {
   description = "Expiração do token em minutos."
   type        = number
   default     = 30
+}
+
+variable "allowed_origins" {
+  description = "Origens permitidas pelo CORS do HTTP API."
+  type        = list(string)
+  default     = ["*"]
+}
+
+variable "lab_role_arn" {
+  description = "ARN do IAM Role existente para execucao (AWS Academy LabRole)."
+  type        = string
+  default     = "arn:aws:iam::698096482625:role/LabRole"
 }
